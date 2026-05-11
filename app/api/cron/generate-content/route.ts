@@ -25,10 +25,60 @@ type GeneratedArticle = {
   body: string
 }
 
+/**
+ * JSON 文字列内にある生の改行・タブ文字を \\n / \\t にエスケープする
+ * Claude が body フィールドにコードブロックを含む場合、
+ * JSON 仕様外の実改行文字が混入してパースに失敗することがあるため前処理する
+ */
+function sanitizeJsonString(json: string): string {
+  let inString = false
+  let prevEscape = false
+  let result = ''
+
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i]
+
+    if (prevEscape) {
+      prevEscape = false
+      result += ch
+      continue
+    }
+
+    if (ch === '\\' && inString) {
+      prevEscape = true
+      result += ch
+      continue
+    }
+
+    if (ch === '"') {
+      inString = !inString
+      result += ch
+      continue
+    }
+
+    if (inString) {
+      if (ch === '\n') { result += '\\n'; continue }
+      if (ch === '\r') {
+        // \r\n → \n（\r だけスキップして次の \n に任せる）
+        if (json[i + 1] === '\n') continue
+        result += '\\n'
+        continue
+      }
+      if (ch === '\t') { result += '\\t'; continue }
+    }
+
+    result += ch
+  }
+
+  return result
+}
+
 // JSON 文字列をパースして型を検証する
 function parseArticleJson(raw: string): GeneratedArticle {
   // コードブロック記法（```json ... ```）が含まれる場合は除去
-  const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
+  const step1 = raw.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
+  // JSON 文字列内の生改行をエスケープ
+  const cleaned = sanitizeJsonString(step1)
   const parsed: unknown = JSON.parse(cleaned)
 
   if (
