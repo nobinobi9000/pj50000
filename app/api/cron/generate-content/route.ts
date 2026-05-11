@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import {
   SYSTEM_PROMPT,
+  TOPIC_SEEDS,
   buildSlug,
   buildUserPrompt,
   getTopicIndex,
@@ -115,10 +116,24 @@ export async function GET(request: Request): Promise<Response> {
 
   // ----------------------------------------------------------------
   // 2. 今日のトピックを決定する
+  //    ?topicIndex=N が指定された場合はそのトピックを使用（手動バッチ生成用）
   // ----------------------------------------------------------------
-  const topic = pickTopic()
-  const topicIndex = getTopicIndex(topic)
+  const { searchParams } = new URL(request.url)
+  const topicIndexParam = searchParams.get('topicIndex')
   const now = new Date()
+
+  let topic: ReturnType<typeof pickTopic>
+  let topicIndex: number
+
+  if (topicIndexParam !== null) {
+    const idx = parseInt(topicIndexParam, 10)
+    topicIndex = Math.max(0, Math.min(idx, TOPIC_SEEDS.length - 1))
+    topic = TOPIC_SEEDS[topicIndex]
+  } else {
+    topic = pickTopic()
+    topicIndex = getTopicIndex(topic)
+  }
+
   const slug = buildSlug(topicIndex, now)
 
   // ----------------------------------------------------------------
