@@ -1,6 +1,6 @@
 # pj5000 開発ログ
 
-Claude Code との 5 セッションで構築・デプロイした内容の全記録。
+Claude Code との 6 セッションで構築・デプロイした内容の全記録。
 
 ---
 
@@ -11,11 +11,12 @@ Claude Code との 5 セッションで構築・デプロイした内容の全�
 3. [セッション 3: Stripe 連携・エラー監視・Self-healing・通知・Middleware・Rate Limiting](#セッション-3-stripe-連携エラー監視self-healingミドルウェアレート制限)
 4. [セッション 4: 法律書類ジェネレーター](#セッション-4-法律書類ジェネレーター)
 5. [セッション 5: Vercel 本番デプロイ](#セッション-5-vercel-本番デプロイ)
-6. [最終ファイル構成](#最終ファイル構成)
-7. [環境変数一覧](#環境変数一覧)
-8. [Vercel デプロイ手順](#vercel-デプロイ手順)
-9. [累積ビルド検証結果](#累積ビルド検証結果)
-10. [累積バグ・解決策一覧](#累積バグ解決策一覧)
+6. [セッション 6: AdSense 審査対応・記事生成改善・UI 改善](#セッション-6-adsense-審査対応記事生成改善ui-改善)
+7. [最終ファイル構成](#最終ファイル構成)
+8. [環境変数一覧](#環境変数一覧)
+9. [Vercel デプロイ手順](#vercel-デプロイ手順)
+10. [累積ビルド検証結果](#累積ビルド検証結果)
+11. [累積バグ・解決策一覧](#累積バグ解決策一覧)
 
 ---
 
@@ -631,6 +632,305 @@ Vercel Dashboard → Settings → Environments → Production から全変数を
 
 ---
 
+## セッション 6: AdSense 審査対応・記事生成改善・UI 改善
+
+### 目的
+
+Google AdSense 審査通過に必要なページ整備、ナビゲーション追加、記事自動生成パイプラインの品質改善、記事詳細ページの読みやすさ向上を行う。
+
+### 追加パッケージ
+
+```bash
+npm install @tailwindcss/typography
+```
+
+### 作成・更新ファイル一覧
+
+| ファイル | 変更種別 | 内容 |
+|---|---|---|
+| `components/header.tsx` | 新規作成 | サイトナビゲーションヘッダー |
+| `components/footer.tsx` | 新規作成 | フッター（コピーライト・リンク・運営者情報） |
+| `app/layout.tsx` | 更新 | Header/Footer 組み込み + SEO メタデータ刷新 |
+| `app/page.tsx` | 更新 | トップページ全面刷新 |
+| `app/articles/page.tsx` | 新規作成 | 記事一覧ページ（ISR・50件） |
+| `app/articles/[slug]/page.tsx` | 更新 | 記事詳細ページのデザイン大幅改善 |
+| `app/privacy/page.tsx` | 新規作成 | プライバシーポリシー（AdSense 必須） |
+| `app/terms/page.tsx` | 新規作成 | 利用規約（AI 免責条項含む） |
+| `app/contact/page.tsx` | 新規作成 | お問い合わせページ |
+| `app/api/cron/generate-content/route.ts` | 更新 | JSON パース修正・topicIndex パラメータ追加 |
+| `lib/content-generator.ts` | 更新 | トピック一覧を法律系に刷新・プロンプト改善 |
+| `tailwind.config.ts` | 更新 | `@tailwindcss/typography` プラグイン追加 |
+| `.env.local` | 更新 | `NEXT_PUBLIC_APP_URL` を本番 URL に修正 |
+
+---
+
+### 1. ナビゲーションヘッダー・フッター
+
+#### `components/header.tsx`
+
+- 左: サイト名「法律書類ジェネレーター」（`/` へリンク）
+- 右: 「記事一覧」「契約書を作る」「プライバシーポリシー」「お問い合わせ」
+- `sticky top-0` + `backdrop-blur` でスクロール時も固定表示
+- スマホ対応: `flex-wrap` で縦並び
+
+#### `components/footer.tsx`
+
+- 「© 2026 法律書類ジェネレーター」
+- プライバシーポリシー / 利用規約 / お問い合わせへのリンク
+- 「運営者情報: 個人運営」記載
+
+#### `app/layout.tsx` の更新
+
+```tsx
+<div className="flex min-h-screen flex-col">
+  <Header />
+  <main className="flex-1">{children}</main>
+  <Footer />
+</div>
+```
+
+SEO メタデータも刷新：
+
+| 項目 | 設定値 |
+|---|---|
+| `title.default` | `法律書類ジェネレーター \| 契約書・内容証明を無料で自動作成` |
+| `description` | 契約書・内容証明・利用規約などの法律書類をAIが瞬時に生成。 |
+| `keywords` | 契約書 自動作成 / AI / 無料 / 業務委託 / 利用規約 自動生成 など |
+| `openGraph.locale` | `ja_JP` |
+| `metadataBase` | `new URL(APP_URL)` |
+
+---
+
+### 2. AdSense 審査必須ページ
+
+#### `app/privacy/page.tsx` - プライバシーポリシー
+
+AdSense・Analytics の記載を含む全 12 条構成。主な内容：
+- 収集する情報・利用目的
+- **Google AdSense の Cookie・オプトアウト方法（必須）**
+- **Google Analytics のデータ収集説明（必須）**
+- 第三者提供・未成年者・問い合わせ先
+
+#### `app/terms/page.tsx` - 利用規約
+
+AI 生成物に関する免責条項を含む全 12 条構成。主な内容：
+- **AIによる生成物の免責（法的アドバイスではない旨）**
+- 禁止事項・無料利用の範囲（3回まで）
+- 知的財産権・サービス変更・損害賠償制限
+
+#### `app/contact/page.tsx` - お問い合わせ
+
+- Google フォームへの外部リンク（`https://forms.gle/example`）
+- メールアドレス記載（`info@pj50000.example.com`）
+- 「法律相談・弁護士紹介には対応しておりません」の注意書き
+
+---
+
+### 3. トップページ刷新（`app/page.tsx`）
+
+**旧**: `pj5000 へようこそ`（プレースホルダー）、CTAが `/dashboard`・`/about` に向いていて 404
+
+**新**: 4セクション構成
+
+| セクション | 内容 |
+|---|---|
+| ヒーロー | キャッチコピー + 「無料で書類を作成する」→`/tools/contract-generator` + 「法律コラムを読む」→`/articles` |
+| 機能紹介 | 「AIが瞬時に生成」「法律的な観点で作成」「無料で3回まで」の3カード |
+| 最新記事 | Supabase から最新3件取得・カード表示（ISR 24時間） |
+| 下部 CTA | 「今すぐ無料で試してみる」ボタン |
+
+---
+
+### 4. 記事一覧ページ（`app/articles/page.tsx`）
+
+- ISR: `revalidate = 86400`（24 時間）
+- Supabase から `published_at` 降順 50 件取得
+- グリッドカード表示（Calendar アイコン・タイトル・概要・「続きを読む →」）
+- 記事ゼロ時は FileText アイコン付き空状態 UI
+- OGP・Twitter Card・canonical URL 付き
+
+---
+
+### 5. 記事詳細ページ改善（`app/articles/[slug]/page.tsx`）
+
+**問題**: `prose` クラスが効いていなかった（`@tailwindcss/typography` 未インストール）
+
+**改善内容**:
+
+| 変更前 | 変更後 |
+|---|---|
+| prose が未適用でHTML素出力 | typography プラグインで見出し・段落・リスト・コード整形 |
+| タイトルと日付のみ | パンくずリスト + カテゴリバッジ + リード文（meta_description） |
+| 本文がベタ流し | h2 に左ボーダーアクセント、行間 1.8、コードは専用スタイル |
+| 記事で終わり | 下部に「契約書作成 CTA」+ 「コラム一覧へ戻る」リンク |
+
+```tsx
+// prose クラス設定例
+className="
+  prose prose-slate max-w-none
+  prose-h2:border-l-4 prose-h2:border-primary prose-h2:pl-3
+  prose-p:leading-8
+  prose-pre:bg-muted prose-code:bg-primary/10
+  ...
+"
+```
+
+---
+
+### 6. 記事生成パイプラインの改善
+
+#### 問題①: JSON パースエラー
+
+**症状**: `POST /api/cron/generate-content` が 500 を返す
+**原因**: Claude が JSON の `body` フィールド内に実際の改行文字（`\n` でなくリテラル改行）を出力し、`JSON.parse()` が失敗
+
+**修正①** - `sanitizeJsonString()` 関数を追加（`route.ts`）:
+
+```typescript
+function sanitizeJsonString(json: string): string {
+  // JSON文字列値の内部を文字単位でスキャンし、
+  // 生の改行文字を \n エスケープシーケンスに変換する
+  let inString = false
+  // ... 省略 ...
+}
+```
+
+**修正②** - システムプロンプトに明示指示（`content-generator.ts`）:
+
+```
+## JSON出力における厳守事項
+- 実際の改行文字を含めない（\n で表現すること）
+- ダブルクォートは \" としてエスケープすること
+```
+
+#### 問題②: トピックがサイトと無関係
+
+**症状**: 生成記事が Next.js・TypeScript 等の技術系内容になっていた
+**原因**: `TOPIC_SEEDS` が技術系トピックで定義されていた
+
+**修正**: トピック 20 件を法律・契約・ビジネス法務に全面刷新
+
+| 旧トピック（例） | 新トピック（例） |
+|---|---|
+| `Next.js App Router のパフォーマンス最適化` | `業務委託契約書の作り方と必須条項` |
+| `TypeScript の型安全を極める実践テクニック10選` | `秘密保持契約書（NDA）の書き方と注意点` |
+| `Supabase Auth でソーシャルログインを5分で実装する` | `内容証明郵便の書き方と使い方` |
+
+新トピック一覧（全 20 件）：
+
+1. 業務委託契約書の作り方と必須条項
+2. 秘密保持契約書（NDA）の書き方と注意点
+3. 雇用契約書と業務委託契約の違い
+4. 売買契約書の基本構成と作成手順
+5. 利用規約の作り方
+6. 内容証明郵便の書き方と使い方
+7. フリーランスの契約トラブル対策
+8. 損害賠償条項の書き方
+9. 契約書の電子署名・電子契約
+10. 著作権譲渡と利用許諾の違い
+11. 競業避止義務条項の有効性と限界
+12. 請負契約と準委任契約の違い
+13. 個人情報取扱同意書の作り方
+14. 契約書の印紙税
+15. クーリングオフ制度の使い方
+16. 賃貸借契約書のチェックポイント
+17. 下請法の基礎知識
+18. 契約の解除と解約の違い
+19. 債権回収の手順と法的手段
+20. 会社設立時に必要な契約書一覧
+
+#### 問題③: 同日に1記事しか生成できない
+
+**症状**: 10本一気に生成しようとしても、2本目から「本日分はすでに生成済みです」と返る
+**原因**: スラッグが `article-{topicIndex}-{YYYY-MM-DD}` の形式で、同日・同トピックは重複チェックで弾かれる設計
+
+**修正**: `?topicIndex=N` クエリパラメータを追加
+
+```typescript
+// 手動バッチ生成時
+GET /api/cron/generate-content?topicIndex=0  // 0番トピックで生成
+GET /api/cron/generate-content?topicIndex=1  // 1番トピックで生成
+// ...
+```
+
+**手動10本生成コマンド（PowerShell）**:
+
+```powershell
+$secret = "415dd16ccbab80c3fd0d4c77a14a01773f612f1d2bbae13a57fa47037291bb49"
+foreach ($idx in 0..9) {
+  Invoke-WebRequest `
+    -Uri "https://pj50000.vercel.app/api/cron/generate-content?topicIndex=$idx" `
+    -Headers @{"Authorization"="Bearer $secret"} `
+    -Method GET -UseBasicParsing
+  Start-Sleep -Seconds 20
+}
+```
+
+---
+
+### 7. 記事の手動生成と Supabase 管理
+
+#### Supabase 記事の削除方法
+
+サービスロールキーを PowerShell の `Invoke-WebRequest` で使うと Supabase 側でブロックされる（「Forbidden use of secret API key in browser」）。
+
+**正しい削除方法**: Supabase ダッシュボード → Table Editor → articles → 行選択 → Delete
+
+#### 生成済み記事確認
+
+```
+GET https://xgvjvmhkknixndjiknfn.supabase.co/rest/v1/articles
+  ?select=id,slug,title,published_at
+  &order=published_at.desc
+  &apikey={ANON_KEY}
+```
+
+---
+
+### 8. 稼働確認結果（セッション 6 時点）
+
+| ページ | URL | 状態 |
+|---|---|---|
+| トップ | https://pj50000.vercel.app | ✅ |
+| 法律コラム一覧 | https://pj50000.vercel.app/articles | ✅ 法律記事10本表示 |
+| 記事詳細 | https://pj50000.vercel.app/articles/article-0-2026-05-11 | ✅ typography 適用済み |
+| プライバシーポリシー | https://pj50000.vercel.app/privacy | ✅ |
+| 利用規約 | https://pj50000.vercel.app/terms | ✅ |
+| お問い合わせ | https://pj50000.vercel.app/contact | ✅ |
+| 契約書ジェネレーター | https://pj50000.vercel.app/tools/contract-generator | ✅ |
+
+#### ビルド結果（セッション 6 最終）
+
+```
+Route (app)                              Size     First Load JS
+┌ ○ /                                    859 B          96.8 kB
+├ ○ /articles                            861 B          96.8 kB
+├ ● /articles/[slug]                     145 B          87.4 kB
+├ ○ /contact                             859 B          96.8 kB
+├ ○ /privacy                             145 B          87.4 kB
+├ ○ /terms                               145 B          87.4 kB
+└ ○ /tools/contract-generator            43.3 kB         131 kB
+```
+
+全ページ静的生成（`○`）で TypeScript strict エラーなし。
+
+---
+
+### 発生したトラブルと解決策
+
+| # | 問題 | 原因 | 解決策 |
+|---|---|---|---|
+| 1 | Cron が 500 エラー | ClaudeのJSON出力に生改行文字が混入 | `sanitizeJsonString()` で前処理 + プロンプトに明示指示 |
+| 2 | 記事が技術系になっている | `TOPIC_SEEDS` が技術系だった | 法律・契約系 20 件に全面刷新 |
+| 3 | 同日に1本しか生成できない | slug が日付+トピック固定のため重複ブロック | `?topicIndex=N` パラメータで任意トピックを指定可能に |
+| 4 | prose クラスが効かない | `@tailwindcss/typography` 未インストール | インストール + `tailwind.config.ts` に追加 |
+| 5 | 古い記事がページに残る | ISR 24 時間キャッシュのため即時反映されない | 空コミット push → Vercel 再デプロイでクリア |
+| 6 | Supabase DELETE が 403 | サービスロールキーをクライアントから送信するとブロックされる | Supabase ダッシュボードの Table Editor から直接削除 |
+| 7 | GitHub push が 500 エラー | GitHub 側の一時的な障害 | しばらく待って再 push |
+| 8 | `.env.local` の `NEXT_PUBLIC_APP_URL` が無効 | プレースホルダーのまま（日本語説明文）だった | `https://pj50000.vercel.app` に修正 |
+
+---
+
 ## 最終ファイル構成
 
 ```
@@ -638,52 +938,66 @@ pj5000/
 ├── app/
 │   ├── api/
 │   │   ├── cron/
-│   │   │   ├── generate-content/route.ts  ← SEO記事生成 Cron
+│   │   │   ├── generate-content/route.ts  ← 法律記事生成 Cron（?topicIndex=N 対応）
 │   │   │   └── health-check/route.ts      ← エラー監視 + Self-heal Cron
 │   │   ├── stripe/
 │   │   │   ├── checkout/route.ts          ← Stripe Checkout Session 作成
 │   │   │   └── webhook/route.ts           ← payment_intent.succeeded 処理
 │   │   └── tools/
-│   │       └── generate-contract/route.ts ← 契約書生成 API（セッション4）
-│   ├── articles/[slug]/page.tsx           ← ISR 記事ページ（OGP + JSON-LD）
+│   │       └── generate-contract/route.ts ← 契約書生成 API
+│   ├── articles/
+│   │   ├── [slug]/page.tsx               ← ISR 記事詳細（OGP + JSON-LD + typography）★S6
+│   │   └── page.tsx                      ← 記事一覧（ISR・50件・カードグリッド）★S6
+│   ├── contact/
+│   │   └── page.tsx                      ← お問い合わせ（AdSense必須）★S6
+│   ├── privacy/
+│   │   └── page.tsx                      ← プライバシーポリシー（AdSense必須）★S6
+│   ├── terms/
+│   │   └── page.tsx                      ← 利用規約（AI免責含む）★S6
 │   ├── tools/
-│   │   └── contract-generator/page.tsx   ← 法律書類ジェネレーター（セッション4）
+│   │   └── contract-generator/page.tsx   ← 法律書類ジェネレーター
 │   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
-├── components/ui/
-│   ├── button.tsx                         ← shadcn/ui Button
-│   ├── card.tsx                           ← shadcn/ui Card（セッション4）
-│   ├── form.tsx                           ← shadcn/ui Form（セッション4）
-│   ├── input.tsx                          ← shadcn/ui Input（セッション4）
-│   ├── label.tsx                          ← shadcn/ui Label（セッション4）
-│   └── textarea.tsx                       ← shadcn/ui Textarea（セッション4）
+│   ├── layout.tsx                        ← Header/Footer 組み込み + SEO 刷新★S6
+│   └── page.tsx                          ← トップページ（ヒーロー+機能+記事+CTA）★S6
+├── components/
+│   ├── header.tsx                        ← ナビゲーションヘッダー★S6
+│   ├── footer.tsx                        ← フッター★S6
+│   └── ui/
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── form.tsx
+│       ├── input.tsx
+│       ├── label.tsx
+│       └── textarea.tsx
 ├── lib/
-│   ├── content-generator.ts              ← トピックリスト・プロンプト定義
-│   ├── notify.ts                         ← LINE / Slack 通知（critical のみ）
-│   ├── rate-limit.ts                     ← Upstash Redis レートリミッター
-│   ├── self-heal.ts                      ← Claude + GitHub API で自動修復
-│   ├── supabase-admin.ts                 ← サービスロールクライアント
-│   ├── supabase-server.ts                ← Server Component 用クライアント
-│   ├── supabase.ts                       ← ブラウザ用クライアント
-│   └── utils.ts                          ← cn() ユーティリティ
+│   ├── content-generator.ts              ← 法律系トピック20件・プロンプト★S6更新
+│   ├── notify.ts
+│   ├── rate-limit.ts
+│   ├── self-heal.ts
+│   ├── supabase-admin.ts
+│   ├── supabase-server.ts
+│   ├── supabase.ts
+│   └── utils.ts
 ├── supabase/migrations/
-│   ├── 001_create_articles.sql           ← articles テーブル
-│   ├── 002_create_subscriptions.sql      ← subscriptions テーブル
-│   ├── 003_create_error_logs.sql         ← error_logs テーブル
-│   └── 004_create_usages.sql            ← usages テーブル + ビュー（セッション4）
+│   ├── 001_create_articles.sql
+│   ├── 002_create_subscriptions.sql
+│   ├── 003_create_error_logs.sql
+│   └── 004_create_usages.sql
 ├── types/
-│   └── index.ts                          ← 全共通型定義
+│   └── index.ts
+├── .env.local                            ← NEXT_PUBLIC_APP_URL を本番URLに修正★S6
 ├── .env.local.example
 ├── .gitignore
 ├── components.json
-├── middleware.ts                          ← Auth + プレミアムガード
+├── middleware.ts
 ├── next.config.mjs
-├── package.json
+├── package.json                          ← @tailwindcss/typography 追加★S6
 ├── postcss.config.js
-├── tailwind.config.ts
+├── tailwind.config.ts                    ← typography プラグイン追加★S6
 ├── tsconfig.json
 └── vercel.json
+
+★S6 = セッション6で新規作成または更新
 ```
 
 ---
@@ -806,3 +1120,11 @@ Route (app)                              Size     First Load JS
 | 12 | 5 | Vercel デプロイ時「Project already exists」エラー | 同名プロジェクトが Vercel に既に存在していた | 既存プロジェクト `pj50000` を流用 |
 | 13 | 5 | Vercel Cron「would run more than once per day」エラー | Hobby プランは Cron 1日1回まで制限あり | `health-check` スケジュールを `30 * * * *` → `0 19 * * *` に変更 |
 | 14 | 5 | 契約書生成「credit balance is too low」エラー | Anthropic API クレジット残高 $0 | Anthropic コンソールでクレジット購入後に解決 |
+| 15 | 6 | Cron が 500 エラー | Claude の JSON 出力に実際の改行文字が混入し `JSON.parse()` 失敗 | `sanitizeJsonString()` で前処理 + プロンプトに JSON 厳守事項を追記 |
+| 16 | 6 | 記事が法律と無関係の技術系 | `TOPIC_SEEDS` が Next.js・TypeScript 等の技術トピックだった | 法律・契約・ビジネス法務 20 件に全面刷新 |
+| 17 | 6 | 同日に 2 本目以降「すでに生成済み」で弾かれる | slug が `article-{idx}-{date}` 固定で重複チェックに引っかかる | `?topicIndex=N` パラメータで任意トピックを強制指定できるよう修正 |
+| 18 | 6 | `prose` クラスが効かず HTML が素出力 | `@tailwindcss/typography` が未インストール | パッケージインストール + `tailwind.config.ts` の plugins に追加 |
+| 19 | 6 | 古い記事が articles ページに残る | ISR 24 時間キャッシュが有効 | 空コミット push → Vercel 再デプロイでキャッシュクリア |
+| 20 | 6 | Supabase REST DELETE が 403 | PowerShell から Service Role Key を使うと Supabase がブロック | Supabase ダッシュボード Table Editor から手動削除 |
+| 21 | 6 | `NEXT_PUBLIC_APP_URL` が Invalid URL でビルドエラー | `.env.local` にプレースホルダー（日本語説明文）が残ったまま | `https://pj50000.vercel.app` に修正 |
+| 22 | 6 | GitHub push が 500 エラー | GitHub 側の一時的なサーバー障害 | しばらく待って再 push で解決 |
