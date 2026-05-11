@@ -1,6 +1,6 @@
 # pj5000 開発ログ
 
-Claude Code との 4 セッションで構築した内容の全記録。
+Claude Code との 5 セッションで構築・デプロイした内容の全記録。
 
 ---
 
@@ -10,11 +10,12 @@ Claude Code との 4 セッションで構築した内容の全記録。
 2. [セッション 2: SEO コンテンツ自動生成パイプライン](#セッション-2-seo-コンテンツ自動生成パイプライン)
 3. [セッション 3: Stripe 連携・エラー監視・Self-healing・通知・Middleware・Rate Limiting](#セッション-3-stripe-連携エラー監視self-healingミドルウェアレート制限)
 4. [セッション 4: 法律書類ジェネレーター](#セッション-4-法律書類ジェネレーター)
-5. [最終ファイル構成](#最終ファイル構成)
-6. [環境変数一覧](#環境変数一覧)
-7. [Vercel デプロイ手順](#vercel-デプロイ手順)
-8. [累積ビルド検証結果](#累積ビルド検証結果)
-9. [累積バグ・解決策一覧](#累積バグ解決策一覧)
+5. [セッション 5: Vercel 本番デプロイ](#セッション-5-vercel-本番デプロイ)
+6. [最終ファイル構成](#最終ファイル構成)
+7. [環境変数一覧](#環境変数一覧)
+8. [Vercel デプロイ手順](#vercel-デプロイ手順)
+9. [累積ビルド検証結果](#累積ビルド検証結果)
+10. [累積バグ・解決策一覧](#累積バグ解決策一覧)
 
 ---
 
@@ -524,6 +525,112 @@ POST /api/tools/generate-contract
 
 ---
 
+## セッション 5: Vercel 本番デプロイ
+
+### 目的
+
+セッション 1〜4 で構築したアプリを Vercel に本番デプロイし、動作確認を完了する。
+
+### 実施内容
+
+#### 1. `.env.local` の作成
+
+`C:\Users\tkouno\pj5000\.env.local` を新規作成。以下の値を設定：
+
+| 変数名 | 設定値 | 備考 |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xgvjvmhkknixndjiknfn.supabase.co` | 確定済み |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_...` | 確定済み |
+| `SUPABASE_SERVICE_ROLE_KEY` | `sb_secret_...` | 確定済み |
+| `ANTHROPIC_API_KEY` | `sk-ant-api03-...` | Anthropic コンソールで発行 |
+| `CRON_SECRET` | `415dd16c...` | `node -e "require('crypto').randomBytes(32).toString('hex')"` で生成 |
+| `NEXT_PUBLIC_APP_URL` | `https://pj50000.vercel.app` | デプロイ後に確定 |
+| `STRIPE_SECRET_KEY` | `sk_test_dummy` | Stripe 未契約のためダミー |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_dummy` | 同上 |
+| `STRIPE_PREMIUM_PRICE_ID` | `price_dummy` | 同上 |
+
+`.gitignore` に `.env.local` が既に含まれていることを確認済み（14行目）。
+
+#### 2. GitHub リポジトリの作成・Push
+
+```bash
+# リポジトリ初期化
+git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/nobinobi9000/pj50000.git
+git push -u origin main
+```
+
+- GitHub アカウント: `nobinobi9000`
+- リポジトリ名: `pj50000`（0が4つ）
+- 44ファイル、10,857行をプッシュ
+
+#### 3. Vercel Cron スケジュール修正
+
+Vercel Hobby プランは **Cron が1日1回まで**の制限がある。
+`health-check` の `30 * * * *`（毎時）が制限に引っかかったため修正：
+
+```json
+// 修正前
+{ "path": "/api/cron/health-check", "schedule": "30 * * * *" }
+
+// 修正後（毎日 04:00 JST）
+{ "path": "/api/cron/health-check", "schedule": "0 19 * * *" }
+```
+
+#### 4. Vercel プロジェクト作成
+
+- Vercel アカウント: `nobinobi9000`（Hobby プラン）
+- プロジェクト名: `pj50000`
+- 本番 URL: **https://pj50000.vercel.app**
+- GitHub リポジトリと連携済み（`main` ブランチへの push で自動デプロイ）
+
+#### 5. 環境変数の設定
+
+Vercel Dashboard → Settings → Environments → Production から全変数を設定。
+（新 UI では「Build and Deployment」ではなく「Environments → Production」配下）
+
+#### 6. 動作確認結果
+
+| URL | 結果 |
+|---|---|
+| `https://pj50000.vercel.app` | ✅ トップページ表示 |
+| `https://pj50000.vercel.app/tools/contract-generator` | ✅ フォーム表示・生成成功 |
+
+**契約書生成テスト結果**:
+- 入力: 業務委託契約書 / 株式会社テスト / フリーランス太郎 / 月額330,000円
+- 出力: 第1条〜第15条（業務内容・著作権・秘密保持・損害賠償・準拠法・管轄等）完備の HTML 契約書
+- HTML ダウンロード: `契約書_2026-05-11.html` として正常出力
+
+---
+
+### 発生したトラブルと解決策
+
+| # | 問題 | 原因 | 解決策 |
+|---|---|---|---|
+| 1 | Vercel プロジェクト名が重複エラー | 同名プロジェクトが既に存在 | 既存の `pj50000` プロジェクトを使用 |
+| 2 | Cron エラー「would run more than once per day」 | Hobby プランは Cron 1日1回制限 | `health-check` を `30 * * * *` → `0 19 * * *` に変更 |
+| 3 | 契約書生成エラー「credit balance is too low」 | Anthropic API のクレジット残高 $0 | Anthropic コンソールでクレジット購入後に解決 |
+| 4 | 「はじめる」「詳しく見る」ボタンが 404 | リンク先ページ（/login, /features 等）が未実装 | 今後の実装課題（想定内） |
+
+---
+
+### 現在の稼働状況
+
+| 機能 | 状態 | URL |
+|---|---|---|
+| トップページ | ✅ 稼働中 | https://pj50000.vercel.app |
+| 法律書類ジェネレーター | ✅ 稼働中・動作確認済み | https://pj50000.vercel.app/tools/contract-generator |
+| SEO 記事自動生成 Cron | ✅ 設定済み（毎日 03:00 JST） | /api/cron/generate-content |
+| ヘルスチェック Cron | ✅ 設定済み（毎日 04:00 JST） | /api/cron/health-check |
+| Supabase DB | ✅ 接続済み・Migration 001〜004 実行済み | - |
+| Stripe 連携 | ⏳ 未契約（ダミー値で稼働中） | - |
+| Upstash Redis | ⏳ 未設定（fail-open で稼働） | - |
+
+---
+
 ## 最終ファイル構成
 
 ```
@@ -696,3 +803,6 @@ Route (app)                              Size     First Load JS
 | 9 | 3 | `string \| null` が `string` に代入できない（webhook） | `Stripe.Metadata = Record<string,string>` のため `??` の結果が `string` に推論される | `let userId: string \| null = ...` と明示的に型注釈 |
 | 10 | 4 | `z.enum()` の `required_error` / `invalid_type_error` が型エラー | Zod v4（4.4.3）でオプション名が変更された | `{ message: '...' }` に変更 |
 | 11 | 4 | `parsed.error.errors` が型エラー | Zod v4 でイシューは `.errors` ではなく `.issues` プロパティ | `parsed.error.issues[0]` に修正 |
+| 12 | 5 | Vercel デプロイ時「Project already exists」エラー | 同名プロジェクトが Vercel に既に存在していた | 既存プロジェクト `pj50000` を流用 |
+| 13 | 5 | Vercel Cron「would run more than once per day」エラー | Hobby プランは Cron 1日1回まで制限あり | `health-check` スケジュールを `30 * * * *` → `0 19 * * *` に変更 |
+| 14 | 5 | 契約書生成「credit balance is too low」エラー | Anthropic API クレジット残高 $0 | Anthropic コンソールでクレジット購入後に解決 |
