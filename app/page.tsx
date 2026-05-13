@@ -134,6 +134,7 @@ export default async function HomePage() {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
+                  timeZone: 'Asia/Tokyo',
                 })
                 return (
                   <Link

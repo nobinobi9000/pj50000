@@ -135,7 +135,7 @@ export default async function ArticlePage({
 
   const formattedDate = new Date(article.published_at).toLocaleDateString(
     'ja-JP',
-    { year: 'numeric', month: 'long', day: 'numeric' },
+    { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Tokyo' },
   )
 
   return (
