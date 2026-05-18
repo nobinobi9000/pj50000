@@ -1,8 +1,11 @@
 // サイトマップ自動生成
 // Next.js の MetadataRoute.Sitemap を使い、静的ページ + Supabase 記事を列挙する
+// force-dynamic: ビルド時キャッシュを使わず毎回 Supabase から最新slugを取得する
 
 import type { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
+
+export const dynamic = 'force-dynamic'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://legal.nobi-labo.com'
 
