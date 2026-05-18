@@ -1128,3 +1128,75 @@ Route (app)                              Size     First Load JS
 | 20 | 6 | Supabase REST DELETE が 403 | PowerShell から Service Role Key を使うと Supabase がブロック | Supabase ダッシュボード Table Editor から手動削除 |
 | 21 | 6 | `NEXT_PUBLIC_APP_URL` が Invalid URL でビルドエラー | `.env.local` にプレースホルダー（日本語説明文）が残ったまま | `https://pj50000.vercel.app` に修正 |
 | 22 | 6 | GitHub push が 500 エラー | GitHub 側の一時的なサーバー障害 | しばらく待って再 push で解決 |
+| 23 | 7 | sitemap.xml に古い slug が残る | Vercel ビルド時に sitemap が静的キャッシュされ、その後の Supabase slug UPDATE が反映されなかった | `export const dynamic = 'force-dynamic'` を追加して毎リクエスト時に Supabase から取得 |
+
+---
+
+## セッション 7: legal.nobi-labo.com 本番化・SEO強化
+
+### 作業概要
+
+legal.nobi-labo.com の本番化とSEO強化
+
+### 完了タスク
+
+#### インフラ設定
+
+- Cloudflare DNS に `legal` CNAME レコード追加
+  - Type: CNAME / Name: legal / Content: cname.vercel-dns.com / DNS only
+- Vercel pj50000 プロジェクトに `legal.nobi-labo.com` ドメイン追加
+  - SSL 証明書自動発行完了
+- 環境変数 `NEXT_PUBLIC_APP_URL` を `https://legal.nobi-labo.com` に更新
+- Vercel Redeploy 完了
+
+#### Search Console
+
+- `https://legal.nobi-labo.com` プロパティ追加・所有権確認完了
+- verification: `4f601pZD_45OSOWgaTq7T01T-jwQg7-bPoXDuUv9aBc`
+- sitemap.xml 送信完了（26ページ検出・成功）
+- 主要5URL インデックス登録リクエスト済み
+
+#### SEO強化
+
+- 既存17記事の slug をキーワード URL に変更（Supabase SQL 実行済み）
+  - 例: `article-0-2026-05-11` → `gyoumu-itaku-keiyaku`
+- 新規記事3本追加生成
+  - `/articles/keiyakusho-template-muryou`
+  - `/articles/gyoumu-itaku-kojin-jigyonushi`
+  - `/articles/keiyakusho-sakusei-checklist`
+- 関連記事セクション追加（記事詳細ページ下部・3件カード表示）
+- `app/layout.tsx` メタデータ更新
+  - `metadataBase`: `https://legal.nobi-labo.com`
+  - Google Site Verification タグ追加
+  - title/description を法律書類ターゲットに最適化
+- `app/sitemap.ts` 新規作成（静的ページ + Supabase 記事を動的取得）
+  - `force-dynamic` でキャッシュ無効化済み
+- `lib/content-generator.ts` 更新
+  - `TOPIC_SLUG_MAP` 追加（20トピック → キーワードスラッグのマッピング）
+  - `buildSlug()` をキーワードスラッグ優先に変更
+  - 新規トピック3件追加（index 20〜22）
+- `tsconfig.json` に `bizproof/` を exclude 追加（pj5000 ビルドに混入しないよう）
+
+#### nobi-labo.com（並行作業）
+
+- Cloudflare Page Rule 追加: `www.nobi-labo.com/*` → `https://nobi-labo.com/$1`（301）
+- `www` レコードを DNS only に変更
+- canonical・sitemap・robots.txt 実装完了
+- Search Console: sitemap.xml 成功（28ページ）・インデックス3件登録済み
+
+### 現在の状態
+
+| 項目 | 状態 |
+|---|---|
+| 本番URL | https://legal.nobi-labo.com |
+| 記事本数 | 20本（毎日 03:00 JST Cron で自動増加） |
+| sitemap | 26ページ正常配信（dynamic 取得） |
+| Search Console | 登録済み・インデックス進行中 |
+| AdSense | nobi-labo.com 審査通過待ち |
+
+### 次のアクション
+
+- [ ] 来週月曜: nobi-labo.com のインデックス状況確認
+- [ ] インデックス10件超え確認後: AdSense 再申請
+- [ ] AdSense 承認後: legal.nobi-labo.com に広告タグ設置
+- [ ] Month 2: Stripe 契約・プレミアムプラン本番化
