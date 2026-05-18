@@ -4,16 +4,19 @@
 // - generateStaticParams でビルド時に既存記事を静的生成
 
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { Calendar } from 'lucide-react'
 import type { Article } from '@/types/index'
 
 // ISR: 24時間（86400秒）ごとにページを再生成する
 export const revalidate = 86400
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://legal.nobi-labo.com'
+
 // ----------------------------------------------------------------
 // Supabase クライアント（公開読み取り専用・anon キー使用）
-// generateStaticParams・generateMetadata・ページ本体で共用
 // ----------------------------------------------------------------
 function getSupabaseClient() {
   return createClient(
@@ -25,14 +28,10 @@ function getSupabaseClient() {
 // ----------------------------------------------------------------
 // generateStaticParams
 // ビルド時に全記事スラッグを取得して静的ページを事前生成する
-// 新しい記事は on-demand ISR で初回アクセス時に生成 → キャッシュ
-// 環境変数が未設定の場合（ローカルビルド等）は空配列を返す
 // ----------------------------------------------------------------
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  // 環境変数が未設定ならビルドをスキップ（ISR で on-demand 生成に委ねる）
   if (!url || !key) return []
 
   const supabase = getSupabaseClient()
@@ -40,7 +39,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
     .from('articles')
     .select('slug')
     .order('published_at', { ascending: false })
-    .limit(100) // 初期ビルドでは最新100件のみ事前生成
+    .limit(100)
 
   return (data ?? []).map((row: { slug: string }) => ({ slug: row.slug }))
 }
@@ -64,22 +63,19 @@ export async function generateMetadata({
     return { title: '記事が見つかりません' }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://example.com'
-  const canonicalUrl = `${appUrl}/articles/${params.slug}`
+  const canonicalUrl = `${APP_URL}/articles/${params.slug}`
 
   return {
     title: data.title,
     description: data.meta_description,
-    alternates: {
-      canonical: canonicalUrl,
-    },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title: data.title,
       description: data.meta_description,
       url: canonicalUrl,
       type: 'article',
       publishedTime: data.published_at,
-      siteName: 'pj5000',
+      siteName: '法律書類ジェネレーター',
     },
     twitter: {
       card: 'summary_large_image',
@@ -98,22 +94,31 @@ export default async function ArticlePage({
   params: { slug: string }
 }) {
   const supabase = getSupabaseClient()
-  const { data } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('slug', params.slug)
-    .single()
+
+  // 記事本体と関連記事を並行取得
+  const [{ data }, { data: relatedData }] = await Promise.all([
+    supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', params.slug)
+      .single(),
+    supabase
+      .from('articles')
+      .select('id, slug, title, meta_description, published_at')
+      .neq('slug', params.slug)
+      .order('published_at', { ascending: false })
+      .limit(3),
+  ])
 
   if (!data) {
     notFound()
   }
 
   const article = data as Article
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://example.com'
-  const canonicalUrl = `${appUrl}/articles/${article.slug}`
+  const relatedArticles = (relatedData ?? []) as Pick<Article, 'id' | 'slug' | 'title' | 'meta_description' | 'published_at'>[]
+  const canonicalUrl = `${APP_URL}/articles/${article.slug}`
 
   // JSON-LD 構造化データ（Article スキーマ）
-  // Google 検索でのリッチリザルト表示に対応
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -124,8 +129,8 @@ export default async function ArticlePage({
     url: canonicalUrl,
     publisher: {
       '@type': 'Organization',
-      name: 'pj5000',
-      url: appUrl,
+      name: '法律書類ジェネレーター',
+      url: APP_URL,
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -214,6 +219,38 @@ export default async function ArticlePage({
             無料で書類を作成する →
           </a>
         </div>
+
+        {/* 関連記事セクション */}
+        {relatedArticles.length > 0 && (
+          <div className="mt-12">
+            <h2 className="mb-6 text-xl font-bold tracking-tight text-foreground">
+              関連記事
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {relatedArticles.map((related) => {
+                const relatedDate = new Date(related.published_at).toLocaleDateString('ja-JP', {
+                  year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Tokyo',
+                })
+                return (
+                  <Link
+                    key={related.slug}
+                    href={`/articles/${related.slug}`}
+                    className="group flex flex-col rounded-lg border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <time dateTime={related.published_at}>{relatedDate}</time>
+                    </div>
+                    <h3 className="mb-2 text-sm font-semibold leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-3">
+                      {related.title}
+                    </h3>
+                    <span className="mt-auto text-xs font-medium text-primary">続きを読む →</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 記事一覧に戻る */}
         <div className="mt-8 text-center">

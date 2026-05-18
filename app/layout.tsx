@@ -13,7 +13,7 @@ const inter = Inter({
   variable: '--font-sans',
 })
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pj50000.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://legal.nobi-labo.com'
 const SITE_NAME = '法律書類ジェネレーター'
 const SITE_DESCRIPTION =
   '契約書・内容証明・利用規約などの法律書類をAIが瞬時に生成。テンプレート不要、無料で3回まで利用できます。'

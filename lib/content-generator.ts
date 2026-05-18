@@ -25,9 +25,42 @@ export const TOPIC_SEEDS = [
   '契約の解除と解約の違い：違約金・損害賠償・原状回復義務を整理する',
   '債権回収の手順と法的手段：内容証明から支払督促・少額訴訟まで',
   '会社設立時に必要な契約書一覧：定款・株主間契約・取締役委任契約の基本',
+  // 追加トピック（SEOキーワード特化）
+  '契約書テンプレート無料ダウンロード：業種別おすすめと使用時の注意点',
+  '個人事業主の業務委託契約書：必須記載事項と締結時のチェックポイント',
+  '契約書作成チェックリスト20選：ミスを防ぐ確認事項と見落としやすい条項',
 ] as const
 
 export type TopicSeed = (typeof TOPIC_SEEDS)[number]
+
+// ----------------------------------------------------------------
+// トピックIndex → SEOキーワードスラッグ マッピング
+// ----------------------------------------------------------------
+export const TOPIC_SLUG_MAP: Record<number, string> = {
+  0:  'gyoumu-itaku-keiyaku',
+  1:  'nda-himitsu-hoji-keiyaku',
+  2:  'koyou-keiyaku',
+  3:  'baibai-keiyaku',
+  4:  'riyou-kiyaku',
+  5:  'naiyou-shomei-yuubin',
+  6:  'freelance-mibarai-hoshu',
+  7:  'songai-baishou-joukou',
+  8:  'denshi-shomei-keiyaku',
+  9:  'chosakuken-joto',
+  10: 'kyougyo-hishi-gimu',
+  11: 'ukeoi-jun-inin-keiyaku',
+  12: 'kojin-jouhou-toriatsukai-doui',
+  13: 'keiyakusho-inshizei',
+  14: 'cooling-off-seido',
+  15: 'chintaishaku-keiyaku',
+  16: 'shitauke-hou',
+  17: 'keiyaku-kaijo-kaiyaku',
+  18: 'saiken-kaishu-houhou',
+  19: 'kaisha-setsuritu-keiyakusho',
+  20: 'keiyakusho-template-muryou',
+  21: 'gyoumu-itaku-kojin-jigyonushi',
+  22: 'keiyakusho-sakusei-checklist',
+}
 
 // ----------------------------------------------------------------
 // トピック選択: 年の何日目かに基づいて決定論的に選択
@@ -44,11 +77,14 @@ export function pickTopic(): TopicSeed {
 
 // ----------------------------------------------------------------
 // スラッグ生成
-// 日本語タイトルから ASCII スラッグを作れないため、
-// トピックのインデックス + 日付でユニーク性を担保する
+// キーワードスラッグがある場合はそれを使用（SEOフレンドリー）
+// マッピングにないトピックはフォールバックとして index+日付を使用
 // ----------------------------------------------------------------
 export function buildSlug(topicIndex: number, date: Date): string {
-  const dateStr = date.toISOString().slice(0, 10) // "2025-05-10"
+  const keyword = TOPIC_SLUG_MAP[topicIndex]
+  if (keyword) return keyword
+  // フォールバック（新規トピック追加時にMAPが未定義の場合）
+  const dateStr = date.toISOString().slice(0, 10)
   return `article-${topicIndex}-${dateStr}`
 }
 
@@ -83,12 +119,12 @@ export const SYSTEM_PROMPT = `あなたは法律・契約・ビジネス法務�
 - HTML タグの属性値のクォートは &quot; または \\" を使用すること
 
 ## 本文の構成（HTML形式・1行のJSON文字列として出力）
-- <h2>見出し</h2> を3〜5個使用
+- <h2>見出し</h2> を5個以上使用
 - 各セクションは <p> タグで段落を構成
 - リストは <ul><li>...</li></ul> または <ol> を使用
 - 強調は <strong> タグを使用
 - コードがある場合は <pre><code>...</code></pre> を使用（コード内の改行は \\n で表現）
-- 全体の文字数: 1,500〜2,500文字
+- 全体の文字数: 2,000〜3,000文字（具体的な文例・チェックリストを含めること）
 
 ## SEO要件
 - タイトルの冒頭にメインキーワードを配置

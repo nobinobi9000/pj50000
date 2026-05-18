@@ -11,7 +11,7 @@ import type { Article } from '@/types/index'
 // ISR: 24時間ごとに再生成
 export const revalidate = 86400
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pj50000.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://legal.nobi-labo.com'
 const SITE_NAME = '法律書類ジェネレーター'
 
 // ----------------------------------------------------------------
