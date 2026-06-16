@@ -57,18 +57,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let articlePages: MetadataRoute.Sitemap = []
 
   if (url && key) {
-    const supabase = createClient(url, key)
-    const { data } = await supabase
-      .from('articles')
-      .select('slug, published_at, updated_at')
-      .order('published_at', { ascending: false })
+    try {
+      const supabase = createClient(url, key)
+      const { data, error } = await supabase
+        .from('articles')
+        .select('slug, published_at, updated_at')
+        .order('published_at', { ascending: false })
 
-    articlePages = (data ?? []).map((article: { slug: string; updated_at: string }) => ({
-      url: `${APP_URL}/articles/${article.slug}`,
-      lastModified: new Date(article.updated_at),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    }))
+      if (error) throw error
+
+      articlePages = (data ?? []).map((article: { slug: string; updated_at: string }) => ({
+        url: `${APP_URL}/articles/${article.slug}`,
+        lastModified: new Date(article.updated_at),
+        changeFrequency: 'monthly' as const,
+        priority: 0.7,
+      }))
+    } catch {
+      // Supabase fetch failure — return static pages only
+    }
   }
 
   return [...staticPages, ...articlePages]

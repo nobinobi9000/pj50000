@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Mail, ExternalLink } from 'lucide-react'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pj50000.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://legal.nobi-labo.com'
 const SITE_NAME = '法律書類ジェネレーター'
 
 export const metadata: Metadata = {

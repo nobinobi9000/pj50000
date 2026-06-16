@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(APP_URL),
   alternates: {
-    canonical: APP_URL,
+    canonical: `${APP_URL}/`,
   },
   openGraph: {
     title: `${SITE_NAME} | 契約書・内容証明を無料で自動作成`,
