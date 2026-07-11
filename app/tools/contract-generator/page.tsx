@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { HankoDeHankoBanner } from '@/components/ads/hanko-de-hanko-banner'
 import type { ContractType, GenerateContractResponse } from '@/types'
 
 // ----------------------------------------------------------------
@@ -240,6 +241,11 @@ ${generatedHtml}
             </div>
           )}
         </div>
+      </div>
+
+      {/* 広告: はんこdeハンコ */}
+      <div className="mb-8">
+        <HankoDeHankoBanner />
       </div>
 
       {/* 入力フォーム */}
@@ -480,6 +486,11 @@ ${generatedHtml}
               ⚠️ 本ツールが生成した契約書は参考資料です。法的効力の保証はありません。
               実際の契約締結前には必ず弁護士等の専門家にご相談ください。
             </p>
+
+            {/* 広告: はんこdeハンコ */}
+            <div className="mt-6">
+              <HankoDeHankoBanner />
+            </div>
           </CardContent>
         </Card>
       )}
