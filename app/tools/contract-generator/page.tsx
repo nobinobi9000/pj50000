@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { HankoDeHankoBanner } from '@/components/ads/hanko-de-hanko-banner'
+import { AdStack } from '@/components/ads/ad-stack'
 import type { ContractType, GenerateContractResponse } from '@/types'
 
 // ----------------------------------------------------------------
@@ -243,9 +243,9 @@ ${generatedHtml}
         </div>
       </div>
 
-      {/* 広告: はんこdeハンコ */}
+      {/* 広告 */}
       <div className="mb-8">
-        <HankoDeHankoBanner />
+        <AdStack />
       </div>
 
       {/* 入力フォーム */}
@@ -487,9 +487,9 @@ ${generatedHtml}
               実際の契約締結前には必ず弁護士等の専門家にご相談ください。
             </p>
 
-            {/* 広告: はんこdeハンコ */}
+            {/* 広告 */}
             <div className="mt-6">
-              <HankoDeHankoBanner />
+              <AdStack />
             </div>
           </CardContent>
         </Card>

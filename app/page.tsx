@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { FileText, Calendar, Zap, Scale, Gift } from 'lucide-react'
-import { HankoDeHankoBanner } from '@/components/ads/hanko-de-hanko-banner'
+import { AdStack } from '@/components/ads/ad-stack'
 import type { Article } from '@/types/index'
 
 // ISR: 24時間
@@ -108,9 +108,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 広告: はんこdeハンコ */}
+      {/* 広告 */}
       <section className="px-4 py-4">
-        <HankoDeHankoBanner />
+        <AdStack />
       </section>
 
       {/* 最新記事セクション */}
